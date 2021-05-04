@@ -55,7 +55,7 @@ function read_atom(rdr)
     elseif token == "false"
         false
     else
-        Symbol(token)
+        types.TaySymbol(token)
     end
 end
 
@@ -72,40 +72,40 @@ function read_list(rdr, start="(", last=")")
         push!(ast, read_form(rdr))
     end
     next(rdr)
-    ast
+    types.TayList(ast)
 end
 
 function read_vector(rdr)
     lst = read_list(rdr, "[", "]")
-    tuple(lst...)
+    tuple(lst.list...)
 end
 
 function read_hash_map(rdr)
     lst = read_list(rdr, "{", "}")
-    types.hash_map(lst...)
+    types.hash_map(lst.list...)
 end
 
 function read_form(rdr)
     token = peek(rdr)
     if token == "'"
         next(rdr)
-        [[:quote]; Any[read_form(rdr)]]
+        types.TayList([types.TaySymbol("quote"); Any[read_form(rdr)]])
     elseif token == "`"
         next(rdr)
-        [[:quasiquote]; Any[read_form(rdr)]]
+        types.TayList([types.TaySymbol("quasiquote"); Any[read_form(rdr)]])
     elseif token == "~"
         next(rdr)
-        [[:unquote]; Any[read_form(rdr)]]
+        types.TayList([types.TaySymbol("unquote"); Any[read_form(rdr)]])
     elseif token == "~@"
         next(rdr)
-        [[Symbol("splice-unquote")]; Any[read_form(rdr)]]
+        types.TayList([types.TaySymbol("splice-unquote"); Any[read_form(rdr)]])
     elseif token == "^"
         next(rdr)
         meta = read_form(rdr)
-        [[Symbol("with-meta")]; Any[read_form(rdr)]; Any[meta]]
+        types.TayList([types.TaySymbol("with-meta"); Any[read_form(rdr)]; Any[meta]])
     elseif token == "@"
         next(rdr)
-        [[Symbol("deref")]; Any[read_form(rdr)]]
+        types.TayList([types.TaySymbol("deref"); Any[read_form(rdr)]])
 
     elseif token == ")"
         error("unexpected ')'")

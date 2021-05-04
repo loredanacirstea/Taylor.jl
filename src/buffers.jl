@@ -33,16 +33,4 @@ struct BufferString
     end
 end
 
-function u8ToString(v::Uint8Array)
-    v
-end
-
-function u8FromString(v::AbstractString)
-    # codepoint.(v)
-    for c in v
-        println(c)
-    end
-end
-
-
 end # module
