@@ -24,7 +24,7 @@ struct BufferString
         a8 = value
         view = value
         if isa(value, AbstractString)
-            a8 = Uint8Array(codeunits("astring"))
+            a8 = Uint8Array(codeunits(value))
         else
             view = String(value)
         end

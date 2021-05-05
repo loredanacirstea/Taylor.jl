@@ -5,6 +5,8 @@ module core
 # using printer
 # import readline_mod
 
+import DataStructures: OrderedDict
+
 using FromFile
 @from "types.jl" import types
 @from "reader.jl" import reader
@@ -73,7 +75,7 @@ function with_meta(obj, meta)
 end
 
 TaySymbol = types.TaySymbol
-ns = () -> Dict{TaySymbol,Any}(
+ns = () -> OrderedDict{TaySymbol,Any}(
     TaySymbol("=") => (a,b) -> types.equal_Q(a, b),
     TaySymbol("throw") => (a) -> throw(types.TayException(a)),
 

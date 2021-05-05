@@ -63,7 +63,7 @@ end
 
 
 # 0100 xx xxxxxxxxxxxxxxxxxxxxxxxxxx     xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx   byte-like(4), type(2), encoding(26), length(32)
-function t_bytelike(length::UInt64, btype::String = "string", encoding::UInt8 = 0)
+function t_bytelike(length, btype = "string", encoding = 0)
     bitv = BitArray([
         getid("bytelike")
         getid(btype)

@@ -3,8 +3,6 @@
 using Test, Taylor
 # import Taylor: EVAL, READ, REP, serialize, repl_env
 
-# EVAL, PRINT, READ, REP, repl_env
-
 init()
 
 function run(line::String, print::Bool = true)
@@ -25,7 +23,6 @@ function run(line::String, print::Bool = true)
             bt = catch_backtrace()
             Base.show_backtrace(stderr, bt)
         end
-        println()
     end
     result
 end
@@ -42,7 +39,6 @@ end
 @testset "taylor 2" begin
     arr::Vector{UInt8} = [97, 115, 116, 114, 105, 110, 103]
     @test codeunits("astring") == arr
-    println(codeunits("astring"))
     @test String(arr) == "astring"
 end
 
@@ -67,51 +63,46 @@ end
 @testset "taylor 3" begin
     arr::Vector{UInt8} = [97, 115, 116, 114, 105, 110, 103]
     stype = utils.t_bytelike(UInt64(7), "string", UInt8(0))
-    # println(stype)
     @test stype == [72, 0, 0, 0, 0, 0, 0, 7]
     stype2 = utils.bytelikeInfo(stype)
-    # println(stype2)
     @test stype2 == [true, 7, 2, 0]
 end
 
 @testset "taylor serialize" begin
     expr = "(str (str \"astring\") \" astring2\" )"
     ast = READ(expr)
-    @test run(expr, false).v.view == "astring astring2"
 
-    @test serialize(ast) == [48, 0, 7, 194, 0, 0, 0, 15, 72, 0, 0, 0, 0, 0, 0, 7, 97, 115, 116, 114, 105, 110, 103, 72, 0, 0, 0, 0, 0, 0, 8, 97, 115, 116, 114, 105, 110, 103, 50]
+    @test serialize(ast) == [48, 0, 10, 2, 0, 0, 0, 15, 48, 0, 3, 193, 0, 0, 0, 15, 72, 0, 0, 0, 0, 0, 0, 7, 97, 115, 116, 114, 105, 110, 103, 72, 0, 0, 0, 0, 0, 0, 9, 32, 97, 115, 116, 114, 105, 110, 103, 50]
+
+    result = run(expr, false)
+    @test result.__type == [72, 0, 0, 0, 0, 0, 0, 16]
+    @test result.v.view == "astring astring2"
+    @test result.v.a8 == [97, 115, 116, 114, 105, 110, 103, 32, 97, 115, 116, 114, 105, 110, 103, 50]
+    @test serialize(result) == [
+        72, 0, 0, 0, 0, 0, 0, 16,
+        97, 115, 116, 114, 105, 110, 103, 32, 97, 115, 116, 114, 105, 110, 103, 50
+    ]
 
     # deserialize(serialize(ast)) == ast
-    return
-
-    println(READ("""
-    (def! d-number (fn* (value)
-    {
-        "type" "number"
-        "value" (if (number? value)
-            value
-            (apply str
-                (map
-                    (fn* (char) (string-utf8-fromCharCode char))
-                    value
-                )
-            )
-        )
-    }
-))
-    """))
 end
 
-# @testset "taylor string" begin
-#     # Write your own tests here.
-#     strType = run("\"astring\"")
-#     println(strType)
-#     @test strType.v.view == "astring"
-#     @test strType.v.a8 == new Uint8Array([97, 115, 116, 114, 105, 110, 103])
-#     # @test strType.type == 2
-#     # @test strType.__type == new Uint8Array([72, 0, 0, 0, 0, 0, 0, 7])
-#     # @test strType.serialize() == new Uint8Array([
-#     #     72, 0, 0, 0, 0, 0, 0, 7,
-#     #     97, 115, 116, 114, 105, 110, 103
-#     # ])
+# @testset "taylor serialize" begin
+#     expr = """
+#         (def! d-number (fn* (value)
+#             {
+#                 "type" "number"
+#                 "value" (if (number? value)
+#                     value
+#                     (apply str
+#                         (map
+#                             (fn* (char) (string-utf8-fromCharCode char))
+#                             value
+#                         )
+#                     )
+#                 )
+#             }
+#         ))
+#     """
+#     ast = READ(expr)
+#     println(ast)
 # end

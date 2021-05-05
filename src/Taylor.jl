@@ -4,7 +4,7 @@ push!(LOAD_PATH, pwd(), "/usr/share/julia/base")
 
 using FromFile
 @from "utils.jl" import utils
-@from "types.jl" import types: TaySymbol, TayType, TayList, TayException, TayFunc, TayString, TayList, serialize
+@from "types.jl" import types: TaySymbol, TayType, TayList, TayException, TayFunc, TayString, TayList, serialize, getIndex
 @from "reader.jl" import reader
 @from "printer.jl" import printer
 @from "env.jl" using env
@@ -196,7 +196,12 @@ end
 
 function init()
     # core.jl: defined using Julia
-    global repl_env = Env(nothing, core.ns())
+    ns = core.ns()
+    for key in keys(ns)
+        ind = getIndex(key.v.view)
+    end
+
+    global repl_env = Env(nothing, ns)
     env_set(repl_env, TaySymbol("eval"), (ast) -> EVAL(ast, repl_env))
     env_set(repl_env, TaySymbol("*ARGV*"), ARGS[2:end])
 

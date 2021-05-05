@@ -1,12 +1,12 @@
 module types
 
-export TayType, TayException, TayFunc, TayString, TayList, sequential_Q, equal_Q, hash_map, Atom, serialize
+export TayType, TayException, TayFunc, TayString, TayList, sequential_Q, equal_Q, hash_map, Atom, serialize, getIndex
 
 import Base.copy
 
 using FromFile
 @from "buffers.jl" import buffers: Uint8Array, BufferString
-@from "utils.jl" import utils: t_func, t_unknown
+@from "utils.jl" import utils: t_func, t_unknown, t_bytelike
 
 @enum Node begin
     NodeList
@@ -55,15 +55,16 @@ struct TaySymbol
     __type::Uint8Array
 
     function TaySymbol(name::Union{AbstractString, BufferString})
-        value = BufferString(name)
-        key = Symbol(value.view)
-        get!(mapTaySymbol, key, new(value, NodeSymbol))
+        v = BufferString(name)
+        key = Symbol(v.view)
+        __type = t_bytelike(length(v.a8), "string", 200)
+        get!(mapTaySymbol, key, new(v, NodeSymbol, __type))
     end
 end
 
 function serialize(v::TaySymbol, options::Dict = Dict())::Uint8Array
     if haskey(options, "arity") && haskey(options, "length")
-        index = get(fmap, v.v.view, getIndex(v.v.view))
+        index = haskey(fmap, v.v.view) ? fmap[v.v.view] : getIndex(v.v.view)
         t_func(get(options, "length", 0), get(options, "arity", 0), index)
     elseif haskey(unknownMap, v.v.view)
         t_unknown(unknownMap[this.v.view].depth, unknownMap[this.v.view].index)
@@ -78,13 +79,14 @@ struct TayString
     __type::Uint8Array
 
     function TayString(name::Union{AbstractString, BufferString})
-        __type = Uint8Array([])
-        new(BufferString(name), NodeString, __type)
+        v = BufferString(name)
+        __type = t_bytelike(length(v.a8), "string", 0)
+        new(v, NodeString, __type)
     end
 end
 serialize(v::TayString) = serialize(v)
-function serialize(v::TayString)
-    Uint8Array([v.__type v.v.a8]);
+function serialize(v::TayString, options::Dict = Dict())
+    Uint8Array(vcat(v.__type, v.v.a8));
 end
 
 mutable struct TayFunc
@@ -106,7 +108,7 @@ function copy(f::TayFunc)
 end
 
 serialize(v::TayFunc) = serialize(v)
-function serialize(v::TayFunc)
+function serialize(v::TayFunc, options::Dict = Dict())
     Uint8Array([])
 end
 
@@ -122,11 +124,12 @@ struct TayList
     end
 end
 serialize(v::TayList) = serialize(v, UInt64(0))
-function serialize(tlist::TayList, level::UInt64)::Uint8Array
+function serialize(tlist::TayList, options::Dict = Dict())::Uint8Array
     list = tlist.list
     bytes = Uint8Array([])
+    level = get(options, "level", 0)
     if isa(list[1], TaySymbol) && !haskey(unknownMap, list[1].v.view)
-        bytes = map(x -> serialize(x, level + 1), list[2:length(list)])
+        bytes = map(x -> serialize(x, Dict("level" => level + 1)), list[2:length(list)])
         if length(bytes) > 0 bytes = reduce(vcat, bytes) end
         bytes = vcat(
             serialize(list[1], Dict("arity" => length(list) - 1, "length" => length(bytes))),
@@ -135,7 +138,7 @@ function serialize(tlist::TayList, level::UInt64)::Uint8Array
     else
         bytes = vcat(
             tlist.__type,
-            map(x -> serialize(x, level + 1), list),
+            map(x -> serialize(x, Dict("level" => level + 1)), list),
         )
     end
     Uint8Array(bytes)
