@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 
+include("examples.jl")
 using Test, Taylor
 # import Taylor: EVAL, READ, REP, serialize, repl_env
 
@@ -42,24 +43,6 @@ end
     @test String(arr) == "astring"
 end
 
-# function _deserialize(inidata::Vector{UInt8})
-#     typesig = inidata[1:8]
-#     bytecode = inidata[9:]
-#     if isBytelike(typesig)
-#         len = bytelikeInfo(typesig)
-#         result =
-#         bytecode = bytecode[len:]
-#         return [result, bytecode]
-#     end
-
-# end
-
-# function deserialize(inidata::Vector{UInt8})
-#     result = _deserialize(inidata)
-#     result[0]
-# end
-
-
 @testset "taylor 3" begin
     arr::Vector{UInt8} = [97, 115, 116, 114, 105, 110, 103]
     stype = utils.t_bytelike(UInt64(7), "string", UInt8(0))
@@ -69,10 +52,11 @@ end
 end
 
 @testset "taylor serialize" begin
-    expr = "(str (str \"astring\") \" astring2\" )"
+    expr = "(str (str \"astring\") \" astring2\")"
     ast = READ(expr)
+    astbin = serialize(ast)
 
-    @test serialize(ast) == [48, 0, 10, 2, 0, 0, 0, 15, 48, 0, 3, 193, 0, 0, 0, 15, 72, 0, 0, 0, 0, 0, 0, 7, 97, 115, 116, 114, 105, 110, 103, 72, 0, 0, 0, 0, 0, 0, 9, 32, 97, 115, 116, 114, 105, 110, 103, 50]
+    @test astbin == [48, 0, 10, 2, 0, 0, 0, 15, 48, 0, 3, 193, 0, 0, 0, 15, 72, 0, 0, 0, 0, 0, 0, 7, 97, 115, 116, 114, 105, 110, 103, 72, 0, 0, 0, 0, 0, 0, 9, 32, 97, 115, 116, 114, 105, 110, 103, 50]
 
     result = run(expr, false)
     @test result.__type == [72, 0, 0, 0, 0, 0, 0, 16]
@@ -83,26 +67,11 @@ end
         97, 115, 116, 114, 105, 110, 103, 32, 97, 115, 116, 114, 105, 110, 103, 50
     ]
 
-    # deserialize(serialize(ast)) == ast
+    @test PRINT(deserialize(astbin)) == expr
+    # @test deserialize(astbin) == ast
 end
 
-# @testset "taylor serialize" begin
-#     expr = """
-#         (def! d-number (fn* (value)
-#             {
-#                 "type" "number"
-#                 "value" (if (number? value)
-#                     value
-#                     (apply str
-#                         (map
-#                             (fn* (char) (string-utf8-fromCharCode char))
-#                             value
-#                         )
-#                     )
-#                 )
-#             }
-#         ))
-#     """
-#     ast = READ(expr)
-#     println(ast)
+# @testset "taylor serialize 2" begin
+#     for expr in examples1
+#         ast = READ(expr)
 # end

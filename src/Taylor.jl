@@ -9,8 +9,9 @@ using FromFile
 @from "printer.jl" import printer
 @from "env.jl" using env
 @from "core.jl" import core
+@from "deserialize.jl" import serialization: deserialize
 
-export EVAL, PRINT, READ, REP, repl_env, init, serialize, utils
+export EVAL, PRINT, READ, REP, repl_env, init, serialize, deserialize, utils
 
 # READ
 function READ(str)

@@ -9,7 +9,9 @@ export pr_str
 
 function pr_str(obj, print_readably=true)
     _r = print_readably
-    if isa(obj, Array)
+    if isa(obj, types.TayList)
+        "($(join([pr_str(o, _r) for o=obj.list], " ")))"
+    elseif isa(obj, Array)
         "($(join([pr_str(o, _r) for o=obj], " ")))"
     elseif isa(obj, Tuple)
         "[$(join([pr_str(o, _r) for o=obj], " "))]"
@@ -25,6 +27,8 @@ function pr_str(obj, print_readably=true)
         else
             obj.v.view
         end
+    elseif isa(obj, types.TaySymbol)
+        obj.v.view
     elseif isa(obj, AbstractString)
         if length(obj) > 0 && obj[1] == '\u029e'
             ":$(obj[3:end])"
