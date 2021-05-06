@@ -2,14 +2,21 @@ module utils
 
 export t_func, t_unknown, t_bytelike, t_array, t_boolean, t_hashmap, t_list, t_nil, t_number, bytelikeInfo, functionInfo, unknownInfo, numberInfo, booleanInfo, nilInfo, listInfo, arrayInfo, hashmapInfo, int2bytes, bitarr_to_int
 
-using FromFile
-@from "buffers.jl" using buffers: Uint8Array
+Uint8Array = Vector{UInt8}
 
-function make_bitvector(v::Vector{UInt8})
-    mapreduce(x -> reverse(digits(x, base = 2, pad = 8)), vcat, v)
+function int2bin(v::Number, pad::Number)::Uint8Array
+    reverse(digits(v, base = 2, pad = pad))
 end
 
-function bitarr_to_int(arr, val = 0)::UInt8
+function int2bin(v::Number)::Uint8Array
+    reverse(digits(v, base = 2))
+end
+
+function make_bitvector(v::Vector{UInt8})
+    mapreduce(x -> int2bin(x, 8), vcat, v)
+end
+
+function bitarr_to_int(arr, val = 0)::UInt64
     v = 2^(length(arr)-1)
     for i in eachindex(arr)
         val += v*arr[i]
@@ -18,11 +25,16 @@ function bitarr_to_int(arr, val = 0)::UInt8
     return val
 end
 
-int2bytes = (v::Number, pad::Number) -> reverse(digits(v, base = 16, pad))
-int2bytes = (v::Number) -> reverse(digits(v, base = 16))
+function int2bytes(v::Number, pad::Number)::Uint8Array
+    reverse(digits(v, base = 16, pad = pad))
+end
 
-function bit2u8Array(arr::BitArray)
-    newarr::Vector{UInt8} = []
+function int2bytes(v::Number)::Uint8Array
+    reverse(digits(v, base = 16))
+end
+
+function bit2u8Array(arr::BitArray)::Uint8Array
+    newarr::Uint8Array = []
     len = UInt64(length(arr) / 8) - 1
     for index in 0:len
         start = index * 8 + 1
@@ -61,6 +73,18 @@ rootids = Dict([
     ("string", BitArray([1, 0]))
 
     ("unknown", BitArray([0, 1, 0]))
+
+    ("complex", BitArray([0, 1]))
+    ("real", BitArray([1, 0]))
+    ("rational", BitArray([0, 0, 1]))
+    ("abstract-irrational", BitArray([0, 1, 0]))
+    ("abstract-float", BitArray([0, 1, 1]))
+    ("integer", BitArray([1, 0, 0]))
+    ("float", BitArray([0, 0, 1]))
+    ("bigfloat", BitArray([0, 1, 0]))
+    ("bool", BitArray([0, 0, 1]))
+    ("unsigned", BitArray([0, 0, 1]))
+    ("signed", BitArray([0, 1, 0]))
 ])
 
 function getid(key::String)
@@ -72,8 +96,8 @@ function t_bytelike(length, btype = "string", encoding = 0)
     bitv = BitArray([
         getid("bytelike")
         getid(btype)
-        reverse(digits(encoding, base = 2, pad = 26))
-        reverse(digits(length, base = 2, pad = 32))
+        int2bin(encoding, 26)
+        int2bin(length, 32)
     ])
     # println("t_bytelike ", bitv)
     bit2u8Array(bitv)
@@ -94,9 +118,9 @@ function t_func(length, arity, id, pure = true)
         getid("function")
         pure ? BitArray([0]) : BitArray([1])
         BitArray([0, 0, 0, 0, 0, 0, 0])
-        reverse(digits(length, base = 2, pad = 14))
-        reverse(digits(arity, base = 2, pad = 6))
-        reverse(digits(id, base = 2, pad = 32))
+        int2bin(length, 14)
+        int2bin(arity, 6)
+        int2bin(id, 32)
     ])
     # println("function ", bitv)
     bit2u8Array(bitv)
@@ -105,7 +129,7 @@ end
 function functionInfo(arr::Vector{UInt8})
     headb = make_bitvector(arr[1:4])
     if headb[1:4] != getid("function") return [false] end
-    bodylen = bitarr_to_int(headb[12:26])
+    bodylen = bitarr_to_int(headb[13:26])
     arity = bitarr_to_int(headb[27:32])
     index = bytes2int(arr[5:8])
     [true, arity, bodylen, index]
@@ -116,8 +140,8 @@ function t_unknown(depth, index)
     bitv = BitArray([
         getid("special")
         getid("unknown")
-        reverse(digits(depth, base = 2, pad = 25))
-        reverse(digits(index, base = 2, pad = 32))
+        int2bin(depth, 25)
+        int2bin(index, 32)
     ])
     # println("t_unknown ", bitv)
     bit2u8Array(bitv)
@@ -141,10 +165,10 @@ function t_hashmap(arity, id)
         [1]
         getid("mapping")
         repeat([0], 17)
-        reverse(digits(arity, base = 2, pad = 6))
-        reverse(digits(id, base = 2, pad = 32))
+        int2bin(arity, pad = 6)
+        int2bin(id, pad = 32)
     ])
-    # println("t_unknown ", bitv)
+    # println("t_hashmap ", bitv)
     bit2u8Array(bitv)
 end
 
@@ -167,10 +191,10 @@ function t_list(arity, id)
         [1]
         getid("list")
         repeat([0], 17)
-        reverse(digits(arity, base = 2, pad = 6))
-        reverse(digits(id, base = 2, pad = 32))
+        int2bin(arity, 6)
+        int2bin(id, 32)
     ])
-    # println("t_unknown ", bitv)
+    # println("t_list ", bitv)
     bit2u8Array(bitv)
 end
 
@@ -194,15 +218,15 @@ function nilInfo(arr::Vector{UInt8})
 end
 
 # 0001 xx xxxxxxxx  xxxxxxxxxxxxxxxx     xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    number(4), reality(2), rationality(3), sign(3), (2) + size(16) + 0 (?)
-# 0001 10 100 010 10 xxxxxxxxxxxxxxxx    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx                real(2), integer(3), signed(3), int(2) + size(16) + 0 (?)
+# 0001 10 100 010 10 00 xxxxxxxxxxxxxxxx    xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx                real(2), integer(3), signed(3), int(2) + size(16) + 0 (?)
 function t_number(size::Number)
     bitv = BitArray([
         getid("number")
         getid("real")
         getid("integer")
         getid("signed")
-        [1, 0]
-        reverse(digits(size, base = 2, pad = 16))
+        [1, 0, 0, 0]
+        int2bin(size, 16)
         repeat([0], 32)
     ])
     # println("t_number ", bitv)
@@ -212,7 +236,7 @@ end
 function numberInfo(arr::Vector{UInt8})
     headb = make_bitvector(arr[1:4])
     if headb[1:4] != getid("number") return [false] end
-    size = bitarr_to_int(headb[13:32])
+    size = bitarr_to_int(headb[17:32])
     [true, size]
 end
 
@@ -222,8 +246,8 @@ function t_boolean(value::Number)
         getid("real")
         getid("integer")
         getid("bool")
-        repeat([0], 18)
-        repeat([0], 32)
+        repeat([0], 20)
+        int2bin(value, 32)
     ])
     # println("t_boolean ", bitv)
     bit2u8Array(bitv)
@@ -241,22 +265,23 @@ function booleanInfo(arr::Vector{UInt8})
     [true]
 end
 
+# 0010 0 0010 xxxxxxxxxxxxxxxxx xxxxxx   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx                  homog(1), array id(4), (23), length(32)
 function t_array(length::Number)
     bitv = BitArray([
         getid("listlike")
         [0]
         getid("array")
         repeat([0], 23)
-        repeat([0], 32)
+        int2bin(length, 32)
     ])
     # println("t_array ", bitv)
     bit2u8Array(bitv)
 end
 
 function arrayInfo(arr::Vector{UInt8})
-    headb = make_bitvector(arr[1:4])
+    headb = make_bitvector(arr)
     if headb[1:9] != vcat(getid("listlike"), [0], getid("array")) return [false] end
-    len = bitarr_to_int(make_bitvector(arr[4:8]))
+    len = bitarr_to_int(headb[33:64])
     [true, len]
 end
 

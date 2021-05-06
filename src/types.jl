@@ -1,6 +1,6 @@
 module types
 
-export TayType, TayException, TaySymbol, TayFunc, TayString, TayList, sequential_Q, equal_Q, hash_map, Atom, serialize, getIndex, getFuncNameByIndex
+export TayType, TayException, TayNil, TaySymbol, TayFunc, TayString, TayBoolean, TayNumber, TayList, TayVector, TayHashMap, sequential_Q, equal_Q, hash_map, Atom, serialize, getIndex, getFuncNameByIndex
 
 import Base.copy
 
@@ -47,6 +47,19 @@ serialize(v::TayBaseType) = x -> Uint8Array([])
 
 # Dict{Symbol,TaySymbol}
 mapTaySymbol = Dict()
+
+struct TayNil
+    instance::Nothing
+    __type::Uint8Array
+
+    function TayNil()
+        new(nothing, t_nil())
+    end
+end
+serialize(v::TayNil) = serialize(v)
+function serialize(v::TayNil, options::Dict = Dict())
+    v.__type
+end
 
 struct TaySymbol
     v::BufferString
@@ -114,13 +127,12 @@ end
 
 struct TayNumber
     v::BufferNumber
-    type::Node
     __type::Uint8Array
 
     function TayNumber(value::Union{Number, BufferNumber})
-        v = BufferNumber(value)
-        __type = t_number(value)
-        new(v, NodeNumber, __type)
+        v = BufferNumber(value, 32)
+        __type = t_number(32)
+        new(v, __type)
     end
 end
 serialize(v::TayNumber) = serialize(v)
@@ -130,13 +142,12 @@ end
 
 struct TayBoolean
     v::BufferBoolean
-    type::Node
     __type::Uint8Array
 
-    function TayBoolean(value::Union{Number, BufferBoolean})
+    function TayBoolean(value::Union{Bool, BufferBoolean})
         v = BufferBoolean(value)
-        __type = t_boolean(value)
-        new(v, NodeBoolean, __type)
+        __type = t_boolean(v.a8[1] === 1)
+        new(v, __type)
     end
 end
 serialize(v::TayBoolean) = serialize(v)
@@ -157,14 +168,15 @@ end
 serialize(v::TayVector) = serialize(v)
 function serialize(v::TayVector, options::Dict = Dict())
     list = v.list
+    options["level"] = get!(options, "level", 0) + 1
     function sv(x::Any)
-        v = serialize(x, Dict("level" => level + 1))
-        v[9:length(v)]
+        v = serialize(x, options)
+        v[9:length(v)] # remove signature
     end
     bytes = vcat(
         v.__type,
-        list[1].__type,
-        map(sv, list),
+        list[1].__type, # element signature
+        mapreduce(sv, vcat, list),
     )
     Uint8Array(bytes)
 end
@@ -178,8 +190,8 @@ struct TayHashMap
         stringMap = Dict()
         len = length(list)
         if len % 2 != 0 error("unexpected hash length") end
-        for (index, elem) in enumerate(list[1:2:len])
-            stringMap[list[index]] = list[index + 1]
+        for i in 1:2:len
+            stringMap[list[i]] = list[i + 1]
         end
 
         __type = t_hashmap(len, 0);
@@ -198,7 +210,7 @@ end
 #     Uint8Array(bytes)
 # end
 
-TayType = Union{TayException, TayFunc, TaySymbol, TayString, TayNumber, TayBoolean, TayHashMap, TayBaseType, Any}
+TayType = Union{TayException, TayNil, TayFunc, TaySymbol, TayString, TayNumber, TayBoolean, TayHashMap, TayBaseType, Any}
 struct TayList
     list::Vector{TayType}
     type::Node
@@ -287,6 +299,14 @@ function hash_map(lst...)
         hm[lst[i]] = lst[i+1]
     end
     hm
+end
+
+function dict_to_vec(dict)
+    vec = []
+    for (k,v) in dict
+        push!(vec, k)
+        push!(vec, v)
+    end
 end
 
 struct Atom

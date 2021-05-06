@@ -3,21 +3,21 @@ module printer
 # import types
 
 using FromFile
-@from "types.jl" import types
+@from "types.jl" import types: TayNil, TayList, TayVector, TayString, TaySymbol, TayNumber, TayBoolean, TayFunc, Atom
 
 export pr_str
 
 function pr_str(obj, print_readably=true)
     _r = print_readably
-    if isa(obj, types.TayList)
+    if isa(obj, TayList)
         "($(join([pr_str(o, _r) for o=obj.list], " ")))"
     elseif isa(obj, Array)
         "($(join([pr_str(o, _r) for o=obj], " ")))"
-    elseif isa(obj, Tuple)
-        "[$(join([pr_str(o, _r) for o=obj], " "))]"
+    elseif isa(obj, TayVector)
+        "[$(join([pr_str(o, _r) for o=obj.list], " "))]"
     elseif isa(obj, Dict)
         "{$(join(["$(pr_str(o[1],_r)) $(pr_str(o[2],_r))" for o=obj], " "))}"
-    elseif isa(obj, types.TayString)
+    elseif isa(obj, TayString)
         if _r
             str = replace(replace(replace(obj.v.view,
                                           "\\" => "\\\\"),
@@ -27,17 +27,17 @@ function pr_str(obj, print_readably=true)
         else
             obj.v.view
         end
-    elseif isa(obj, types.TaySymbol)
+    elseif isa(obj, TaySymbol) || isa(obj, TayNumber) || isa(obj, TayBoolean)
         obj.v.view
     elseif isa(obj, AbstractString)
         if length(obj) > 0 && obj[1] == '\u029e'
             ":$(obj[3:end])"
         end
-    elseif obj == nothing
+    elseif isa(obj, TayNil)
         "nil"
-    elseif typeof(obj) == types.TayFunc
+    elseif typeof(obj) == TayFunc
         "(fn* $(pr_str(obj.params,true)) $(pr_str(obj.ast,true)))"
-    elseif typeof(obj) == types.Atom
+    elseif typeof(obj) == Atom
         "(atom $(pr_str(obj.val,true)))"
     elseif typeof(obj) == Function
         "#<native function: $(string(obj))>"

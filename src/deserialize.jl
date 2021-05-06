@@ -17,7 +17,7 @@ function _deserialize(inidata::Uint8Array)
         (len, type, encoding) = info[2:4]
         println("--- bytelikeInfo ", info)
         result = bytecode[1:len]
-        bytecode = bytecode[len:length(bytecode)]
+        bytecode = bytecode[(len + 1):length(bytecode)]
         if type == 2
             # if encoding == 100 result = TayKeyword(result) end
             if encoding == 200
@@ -32,27 +32,27 @@ function _deserialize(inidata::Uint8Array)
     info = booleanInfo(typesig)
     if info[1] == true
         println("--- booleanInfo ", info)
-        result = TayBoolean(BufferBoolean(bytecode[1:1]))
+        resultb = TayBoolean(BufferBoolean(bytecode[1:1]))
         bytecode = bytecode[2:length(bytecode)]
-        return [result, bytecode]
+        return [resultb, bytecode]
     end
 
     info = numberInfo(typesig)
     if info[1] == true
         println("--- numberInfo ", info)
-        (len, value) = info[2:3]
-        len = len / 8
-        result = TayNumber(value)
-        bytecode = bytecode[len:length(bytecode)]
-        return [result, bytecode]
+        size = info[2] # bytes
+        value = bytecode[1:size];
+        resn = TayNumber(BufferNumber(value))
+        bytecode = bytecode[(size + 1):length(bytecode)]
+        return [resn, bytecode]
     end
 
     info = unknownInfo(typesig)
     if info[1] == true
         println("--- unknownInfo ", info)
         (depth, index) = info[2:3]
-        result = TaySymbol(BufferString("x"*depth*"_"*index))
-        return [result, bytecode]
+        resu = TaySymbol(BufferString("x"*depth*"_"*index))
+        return [resu, bytecode]
     end
 
     info = nilInfo(typesig)
@@ -66,14 +66,13 @@ function _deserialize(inidata::Uint8Array)
     if info[1] == true
         println("--- listInfo ", info)
         arity = info[2]
-        result = []
+        resultl = []
         for i in range(1, arity, step = 1)
             _result = _deserialize(bytecode)
             bytecode = _result[2]
-            push!(result, _result[1])
+            push!(resultl, _result[1])
         end
-        result = TayList(result)
-        return [result, bytecode]
+        return [TayList(resultl), bytecode]
     end
 
     info = arrayInfo(typesig)
@@ -81,30 +80,28 @@ function _deserialize(inidata::Uint8Array)
         println("--- arrayInfo ", info)
         len = info[2]
         elemSig = bytecode[1:8]
-        bytecode = bytecode[8:length(bytecode)]
-        result = []
+        bytecode = bytecode[9:length(bytecode)]
+        resulta = []
         for i in range(1, len, step = 1)
             elem = vcat(elemSig, bytecode)
             _result = _deserialize(elem)
             bytecode = _result[2]
-            push!(result, _result[1])
+            push!(resulta, _result[1])
         end
-        result = TayVector(result)
-        return [result, bytecode]
+        return [TayVector(resulta), bytecode]
     end
 
     info = hashmapInfo(typesig)
     if info[1] == true
         println("--- hashmapInfo ", info)
         len = info[2]
-        result = []
+        resulth = []
         for i in range(1, len, step = 1)
             _result = _deserialize(bytecode)
             bytecode = _result[2]
-            push!(result, _result[1])
+            push!(resulth, _result[1])
         end
-        result = TayHashMap(result)
-        return [result, bytecode]
+        return [TayHashMap(resulth), bytecode]
     end
 
     info = functionInfo(typesig)
@@ -113,21 +110,23 @@ function _deserialize(inidata::Uint8Array)
         (arity, bodylen, index) = info[2:4]
         name = getFuncNameByIndex(index)
         body = bytecode[1:bodylen]
-        result::Vector{TayType} = [
+        resultf::Vector{TayType} = [
             TaySymbol(BufferString(name)),
         ]
         for i in range(1, arity, step = 1)
             println("--- functionInfo i ", i)
             _result = _deserialize(body)
             body = _result[2]
-            push!(result, _result[1])
+            push!(resultf, _result[1])
             println("--- arg ",  _result[1])
         end
         bytecode = bytecode[(bodylen + 1):length(bytecode)]
-        res = TayList(result)
+        res = TayList(resultf)
         return [res, bytecode]
     end
 
+    println("typesig ", typesig)
+    println("inidata ", inidata)
     error("decode type not supported: ") # typesig, inidata
 end
 

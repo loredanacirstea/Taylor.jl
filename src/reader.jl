@@ -37,7 +37,7 @@ end
 function read_atom(rdr)
     token = next(rdr)
     if match(r"^-?[0-9]+$", token) !== nothing
-        parse(Int,token)
+        types.TayNumber(parse(Int,token))
     elseif match(r"^-?[0-9][0-9.]*$", token) !== nothing
         float(token)
     elseif match(r"^\"(?:\\.|[^\\\"])*\"$", token) !== nothing
@@ -49,11 +49,11 @@ function read_atom(rdr)
     elseif token[1] == ':'
         "\u029e$(token[2:end])"
     elseif token == "nil"
-        nothing
+        types.TayNil.instance
     elseif token == "true"
-        true
+        types.TayBoolean(true)
     elseif token == "false"
-        false
+        types.TayBoolean(false)
     else
         types.TaySymbol(token)
     end
@@ -77,12 +77,12 @@ end
 
 function read_vector(rdr)
     lst = read_list(rdr, "[", "]")
-    tuple(lst.list...)
+    types.TayVector(lst.list)
 end
 
 function read_hash_map(rdr)
     lst = read_list(rdr, "{", "}")
-    types.hash_map(lst.list...)
+    types.hash_map(lst.list)
 end
 
 function read_form(rdr)
@@ -127,7 +127,7 @@ end
 function read_str(str)
     tokens = tokenize(str)
     if length(tokens) == 0
-        return nothing
+        return types.TayNil.instance
     end
     read_form(Reader(tokens, 1))
 end

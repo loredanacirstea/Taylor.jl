@@ -4,7 +4,7 @@ push!(LOAD_PATH, pwd(), "/usr/share/julia/base")
 
 using FromFile
 @from "utils.jl" import utils
-@from "types.jl" import types: TaySymbol, TayType, TayList, TayException, TayFunc, TayString, TayList, serialize, getIndex
+@from "types.jl" import types: TaySymbol, TayType, TayList, TayException, TayFunc, TayString, TayList, TayVector, serialize, getIndex
 @from "reader.jl" import reader
 @from "printer.jl" import printer
 @from "env.jl" using env
@@ -58,8 +58,8 @@ function quasiquote(ast)
         else
             quasiquote_foldr(ast.list)
         end
-    elseif isa(ast, Tuple)
-        Any[TaySymbol("vec"), quasiquote_foldr(ast)]
+    elseif isa(ast, TayVector)
+        TayList([TaySymbol("vec"), quasiquote_foldr(ast)])
     else
         ast
     end
@@ -87,7 +87,9 @@ function eval_ast(ast, env)
         env_get(env,ast)
     elseif isa(ast, TayList)
         TayList(map((x) -> EVAL(x,env), ast.list))
-    elseif isa(ast, Array) || isa(ast, Tuple)
+    elseif isa(ast, TayVector)
+        TayVector(map((x) -> EVAL(x,env), ast.list))
+    elseif isa(ast, Array) || isa(ast, Tuple) # TODO remove
         TayList(map((x) -> EVAL(x,env), ast))
     elseif isa(ast, Dict)
         [EVAL(x[1],env) => EVAL(x[2], env) for x=ast]
