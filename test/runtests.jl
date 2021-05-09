@@ -43,6 +43,10 @@ end
     @test String(arr) == "astring"
 end
 
+@testset "taylor bytes <-> int" begin
+    @test utils.bytes2int(utils.int2bytes(151990332)) == 151990332
+end
+
 @testset "taylor 3" begin
     arr::Vector{UInt8} = [97, 115, 116, 114, 105, 110, 103]
     stype = utils.t_bytelike(UInt64(7), "string", UInt8(0))
@@ -71,7 +75,11 @@ end
     # @test deserialize(astbin) == ast
 end
 
-# @testset "taylor serialize 2" begin
-#     for expr in examples1
-#         ast = READ(expr)
-# end
+@testset verbose = true "taylor serialize 2" begin
+    @testset "Serialize $expr" for (expr, res) in examples1
+        ast = READ(expr)
+        astbin = serialize(ast)
+        @test PRINT(deserialize(astbin)) == expr
+        @test run(expr) == res
+    end
+end

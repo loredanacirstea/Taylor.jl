@@ -1,6 +1,6 @@
 module types
 
-export TayType, TayException, TayNil, TaySymbol, TayFunc, TayString, TayBoolean, TayNumber, TayList, TayVector, TayHashMap, sequential_Q, equal_Q, hash_map, Atom, serialize, getIndex, getFuncNameByIndex
+export TayType, TayException, TayNil, TayNilInstance, TaySymbol, TayFunc, TayString, TayBoolean, TayNumber, TayList, TayVector, TayHashMap, sequential_Q, equal_Q, hash_map, Atom, serialize, getIndex, is_nil, getFuncNameByIndex, hash_map_get, hash_map_has, hash_map_assoc, hash_map_dissoc
 
 import Base.copy
 
@@ -49,16 +49,21 @@ serialize(v::TayBaseType) = x -> Uint8Array([])
 mapTaySymbol = Dict()
 
 struct TayNil
-    instance::Nothing
     __type::Uint8Array
 
     function TayNil()
-        new(nothing, t_nil())
+        new(t_nil())
     end
 end
+TayNilInstance = TayNil()
+
 serialize(v::TayNil) = serialize(v)
 function serialize(v::TayNil, options::Dict = Dict())
     v.__type
+end
+
+function is_nil(v::Any)
+    v === nothing || isa(v, TayNil)
 end
 
 struct TaySymbol
@@ -160,7 +165,7 @@ struct TayVector
     type::Node
     __type::Uint8Array
 
-    function TayVector(list::Vector{Any})
+    function TayVector(list::Any)
         __type = t_array(length(list))
         new(list, NodeVector, __type)
     end
@@ -183,32 +188,46 @@ end
 
 struct TayHashMap
     stringMap::Dict{Any,Any}
-    type::Node
     __type::Uint8Array
 
     function TayHashMap(list::Vector{Any})
-        stringMap = Dict()
         len = length(list)
         if len % 2 != 0 error("unexpected hash length") end
-        for i in 1:2:len
-            stringMap[list[i]] = list[i + 1]
-        end
-
+        stringMap = hash_map(list)
         __type = t_hashmap(len, 0);
-        new(list, NodeHashMap, __type)
+        new(stringMap, __type)
     end
 end
-# serialize(v::TayHashMap) = serialize(v)
-# function serialize(v::TayHashMap, options::Dict = Dict())
-#     list = v.stringMap
-#     bytes = vcat(
-#         v.__type,
-#         list[1].__type,
-#         map(x -> range(serialize(x, Dict("level" => level + 1)), list),
-#     )
-#     println("--serialize TayHashMap: ", bytes)
-#     Uint8Array(bytes)
-# end
+serialize(v::TayHashMap) = serialize(v)
+function serialize(v::TayHashMap, options::Dict = Dict())
+    list = dict_to_vec(v.stringMap)
+    options["level"] = get!(options, "level", 0) + 1
+    bytes = vcat(
+        v.__type,
+        map(x -> serialize(x, options), list)...,
+    )
+    Uint8Array(bytes)
+end
+
+function hash_map_assoc(v::TayHashMap, args::Vector{Any})
+    list = vcat(dict_to_vec(v), args)
+    TayHashMap(list)
+end
+
+function hash_map_dissoc(v::TayHashMap, args::Vector{Any})
+    #  (a, b...) -> foldl((x,y) -> delete!(x,y),copy(a), b)
+    for v in args
+        delete!(v.stringMap, v.v.view)
+    end
+end
+
+function hash_map_has(v::TayHashMap, key::TayString)
+    haskey(v.stringMap, key.v.view)
+end
+
+function hash_map_get(v::TayHashMap, key::TayString)
+    is_nil(v) ? TayNilInstance : get(v, key, TayNilInstance)
+end
 
 TayType = Union{TayException, TayNil, TayFunc, TaySymbol, TayString, TayNumber, TayBoolean, TayHashMap, TayBaseType, Any}
 struct TayList
@@ -216,7 +235,7 @@ struct TayList
     type::Node
     __type::Uint8Array
 
-    function TayList(list::Vector{TayType})
+    function TayList(list::Any)
         __type = t_list(length(list), 0);
         new(list, NodeList, __type)
     end
@@ -249,14 +268,14 @@ function serialize(tlist::TayList, options::Dict = Dict())::Uint8Array
     else
         bytes = vcat(
             tlist.__type,
-            map(x -> serialize(x, Dict("level" => level + 1)), list),
+            map(x -> serialize(x, Dict("level" => level + 1)), list)...,
         )
     end
     Uint8Array(bytes)
 end
 
 function sequential_Q(obj)
-    isa(obj, Array) || isa(obj, Tuple)
+    isa(obj, TayList) || isa(obj, TayVector)
 end
 
 function equal_Q(a, b)
@@ -266,34 +285,38 @@ function equal_Q(a, b)
         return false
     end
 
+    if isa(a, TayNil) && isa(b, TayNil) return true end
+
     if sequential_Q(a)
-        if length(a) !== length(b)
+        if length(a.list) !== length(b.list)
             return false
         end
-        for (x, y) in zip(a,b)
+        for (x, y) in zip(a.list,b.list)
             if !equal_Q(x, y)
                 return false
             end
         end
         return true
-    elseif isa(a,AbstractString)
-        a == b
-    elseif isa(a,Dict)
-        if length(a) !== length(b)
+    elseif isa(a,TayString)
+        if !isa(b, TayString) return false end
+        a.v.view == b.v.view
+    elseif isa(a,TayHashMap)
+        if !isa(b, TayHashMap) return false end
+        if length(a.stringMap) !== length(b.stringMap)
           return false
         end
-        for (k,v) in a
-            if !equal_Q(v,b[k])
+        for (k,v) in a.stringMap
+            if !equal_Q(v,b.stringMap[k])
                 return false
             end
         end
         return true
     else
-        a === b
+        a.v.view === b.v.view
     end
 end
 
-function hash_map(lst...)
+function hash_map(lst)
     hm = Dict()
     for i = 1:2:length(lst)
         hm[lst[i]] = lst[i+1]
@@ -307,6 +330,7 @@ function dict_to_vec(dict)
         push!(vec, k)
         push!(vec, v)
     end
+    vec
 end
 
 struct Atom

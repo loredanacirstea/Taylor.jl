@@ -58,7 +58,7 @@ function _deserialize(inidata::Uint8Array)
     info = nilInfo(typesig)
     if info[1] == true
         println("--- nilInfo ", info)
-        result = TayNil.instance
+        result = TayNilInstance
         return [result, bytecode]
     end
 

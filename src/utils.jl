@@ -26,11 +26,26 @@ function bitarr_to_int(arr, val = 0)::UInt64
 end
 
 function int2bytes(v::Number, pad::Number)::Uint8Array
-    reverse(digits(v, base = 16, pad = pad))
+    r = reinterpret(UInt8, [v])
+    diff = pad - length(r)
+    if diff > 0 r = vcat(r, fill(0, diff)) end
+    r
 end
 
 function int2bytes(v::Number)::Uint8Array
-    reverse(digits(v, base = 16))
+    reinterpret(UInt8, [v])
+end
+
+function diffnextmultiple(v::Number, m::Number)
+    r = v % m
+    r == 0 ? 0 : (m - r)
+end
+# little endian
+function bytes2int(x::Uint8Array)
+    nm = diffnextmultiple(length(x), 8)
+    x = vcat(x, fill(0, nm))
+    r = reinterpret(UInt64, Uint8Array(x))
+    r[1] # !
 end
 
 function bit2u8Array(arr::BitArray)::Uint8Array
@@ -43,11 +58,6 @@ function bit2u8Array(arr::BitArray)::Uint8Array
         newarr = vcat(newarr, [newval])
     end
     newarr
-end
-
-function bytes2int(x::Array{UInt8,1})
-    hex = bytes2hex(x)
-    return parse(UInt64, hex, base=16)
 end
 
 function bytes2bint(x::Array{UInt8,1})
@@ -106,7 +116,7 @@ end
 function bytelikeInfo(arr::Vector{UInt8})
     headb = make_bitvector(arr[1:4])
     if headb[1:4] != getid("bytelike") return [false] end
-    length = bytes2int(arr[5:8])
+    length = bytes2int(reverse(arr[5:8])) # be -> le
     type = bitarr_to_int(headb[5:6])
     encoding = bitarr_to_int(headb[6:8])
     [true, length, type, encoding]
@@ -131,7 +141,7 @@ function functionInfo(arr::Vector{UInt8})
     if headb[1:4] != getid("function") return [false] end
     bodylen = bitarr_to_int(headb[13:26])
     arity = bitarr_to_int(headb[27:32])
-    index = bytes2int(arr[5:8])
+    index = bytes2int(reverse(arr[5:8])) # be -> le
     [true, arity, bodylen, index]
 end
 
@@ -165,8 +175,8 @@ function t_hashmap(arity, id)
         [1]
         getid("mapping")
         repeat([0], 17)
-        int2bin(arity, pad = 6)
-        int2bin(id, pad = 32)
+        int2bin(arity, 6)
+        int2bin(id, 32)
     ])
     # println("t_hashmap ", bitv)
     bit2u8Array(bitv)
@@ -211,7 +221,9 @@ function listInfo(arr::Vector{UInt8})
     [true, arity, id]
 end
 
-t_nil = () => Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]);
+function t_nil()
+    Uint8Array([0, 0, 0, 0, 0, 0, 0, 0])
+end
 
 function nilInfo(arr::Vector{UInt8})
     [sum(arr) == 0]

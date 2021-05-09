@@ -49,7 +49,7 @@ function read_atom(rdr)
     elseif token[1] == ':'
         "\u029e$(token[2:end])"
     elseif token == "nil"
-        types.TayNil.instance
+        types.TayNilInstance
     elseif token == "true"
         types.TayBoolean(true)
     elseif token == "false"
@@ -82,7 +82,7 @@ end
 
 function read_hash_map(rdr)
     lst = read_list(rdr, "{", "}")
-    types.hash_map(lst.list)
+    types.TayHashMap(lst.list)
 end
 
 function read_form(rdr)
@@ -127,7 +127,7 @@ end
 function read_str(str)
     tokens = tokenize(str)
     if length(tokens) == 0
-        return types.TayNil.instance
+        return types.TayNilInstance
     end
     read_form(Reader(tokens, 1))
 end

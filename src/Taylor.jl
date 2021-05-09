@@ -4,7 +4,7 @@ push!(LOAD_PATH, pwd(), "/usr/share/julia/base")
 
 using FromFile
 @from "utils.jl" import utils
-@from "types.jl" import types: TaySymbol, TayType, TayList, TayException, TayFunc, TayString, TayList, TayVector, serialize, getIndex
+@from "types.jl" import types: TaySymbol, TayType, TayList, TayException, TayFunc, TayString, TayList, TayVector, TayHashMap, serialize, getIndex
 @from "reader.jl" import reader
 @from "printer.jl" import printer
 @from "env.jl" using env
@@ -50,16 +50,16 @@ end
 function quasiquote(ast)
     if isa(ast, TaySymbol)
         TayList([TaySymbol("quote"), ast])
-    elseif isa(ast, Dict)
+    elseif isa(ast, TayHashMap)
         TayList([TaySymbol("quote"), ast])
     elseif isa(ast, TayList)
-        if starts_with(ast, "unquote")
-            ast[2]
+        if starts_with(ast.list, "unquote")
+            ast.list[2]
         else
             quasiquote_foldr(ast.list)
         end
     elseif isa(ast, TayVector)
-        TayList([TaySymbol("vec"), quasiquote_foldr(ast)])
+        TayList([TaySymbol("vec"), quasiquote_foldr(ast.list)])
     else
         ast
     end
@@ -89,10 +89,13 @@ function eval_ast(ast, env)
         TayList(map((x) -> EVAL(x,env), ast.list))
     elseif isa(ast, TayVector)
         TayVector(map((x) -> EVAL(x,env), ast.list))
+    elseif isa(ast, TayHashMap)
+        [EVAL(x[1],env) => EVAL(x[2], env) for x=ast.stringMap]
     elseif isa(ast, Array) || isa(ast, Tuple) # TODO remove
         TayList(map((x) -> EVAL(x,env), ast))
-    elseif isa(ast, Dict)
-        [EVAL(x[1],env) => EVAL(x[2], env) for x=ast]
+    # elseif isa(ast, Dict) # TODO remove
+    #     [EVAL(x[1],env) => EVAL(x[2], env) for x=ast]
+
     else
         ast
     end
@@ -113,8 +116,8 @@ function EVAL(ast, env)
         return env_set(env, ast[2], EVAL(ast[3], env))
     elseif "let*" == ast[1].v.view
         let_env = Env(env)
-        for i = 1:2:length(ast[2])
-            env_set(let_env, ast[2][i], EVAL(ast[2][i+1], let_env))
+        for i = 1:2:length(ast[2].list)
+            env_set(let_env, ast[2].list[i], EVAL(ast[2].list[i+1], let_env))
         end
         env = let_env
         ast = ast[3]

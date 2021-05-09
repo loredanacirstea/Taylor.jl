@@ -54,14 +54,14 @@ function conj(seq, args...)
 end
 
 function do_seq(obj)
-    if isa(obj,Array)
-        length(obj) > 0 ? obj : nothing
-    elseif isa(obj,TayVector)
-        length(obj) > 0 ? Any[obj...] : nothing
+    if isa(obj,TayVector)
+        length(obj.list) > 0 ? TayList(obj.list) : TayNilInstance
     elseif isa(obj,TayString)
-        length(obj) > 0 ? [string(c) for c=obj.v.view] : nothing
-    elseif obj == nothing
-        nothing
+        length(obj.v.a8) > 0 ? TayList([TayString(string(c)) for c=obj.v.view]) : TayNilInstance
+    elseif is_nil(obj)
+        TayNilInstance
+    elseif isa(obj,Array)
+        length(obj) > 0 ? obj : TayNilInstance
     else
         error("seq: called on non-sequence")
     end
@@ -75,20 +75,20 @@ function with_meta(obj, meta)
 end
 
 ns = () -> OrderedDict{TaySymbol,Any}(
-    TaySymbol("=") => (a,b) -> TayBool(equal_Q(a, b)),
+    TaySymbol("=") => (a,b) -> TayBoolean(equal_Q(a, b)),
     TaySymbol("throw") => (a) -> throw(TayException(a)),
 
-    TaySymbol("nil?") => (a) -> a === nothing,
-    TaySymbol("true?") => (a) -> TayBool(a.v.a8[1] === 1),
-    TaySymbol("false?") => (a) -> TayBool(a.v.a8[1] === 0),
-    TaySymbol("string?") => (a) -> TayBool(string_Q(a)),
+    TaySymbol("nil?") => (a) -> isa(a, TayNil),
+    TaySymbol("true?") => (a) -> TayBoolean(a.v.a8[1] == 1),
+    TaySymbol("false?") => (a) -> TayBoolean(a.v.a8[1] == 0),
+    TaySymbol("string?") => (a) -> TayBoolean(string_Q(a)),
     TaySymbol("Symbol") => (a) -> TaySymbol(a.v.view),
-    TaySymbol("Symbol?") => (a) -> TayBool(typeof(a) === Symbol),
+    TaySymbol("Symbol?") => (a) -> TayBoolean(typeof(a) === Symbol),
     TaySymbol("keyword") => (a) -> a[1] == '\u029e' ? a : "\u029e$(a)",
-    TaySymbol("keyword?") => (a) -> TayBool(keyword_Q(a)),
-    TaySymbol("number?") => (a) -> TayBool(isa(a, AbstractFloat) || isa(a, TayNumber)),
-    TaySymbol("fn?") => (a) -> TayBool(isa(a, Function) || (isa(a, TayFunc) && !a.ismacro)),
-    TaySymbol("macro?") => (a) -> TayBool(isa(a, TayFunc) && a.ismacro),
+    TaySymbol("keyword?") => (a) -> TayBoolean(keyword_Q(a)),
+    TaySymbol("number?") => (a) -> TayBoolean(isa(a, AbstractFloat) || isa(a, TayNumber)),
+    TaySymbol("fn?") => (a) -> TayBoolean(isa(a, Function) || (isa(a, TayFunc) && !a.ismacro)),
+    TaySymbol("macro?") => (a) -> TayBoolean(isa(a, TayFunc) && a.ismacro),
 
     TaySymbol("pr-str") => (a...) -> join(map((e)->pr_str(e, true),a)," "),
     TaySymbol("str") => (a...) -> TayString(join(map((e)->pr_str(e, false),a),"")),
@@ -98,48 +98,48 @@ ns = () -> OrderedDict{TaySymbol,Any}(
     # "readline") => readline_mod.do_readline,
     TaySymbol("slurp") => (a) -> readall(open(a)),
 
-    TaySymbol("<") => (a, b) -> TayBool(a.v.view < b.v.view),
-    TaySymbol("<=") => (a, b) -> TayBool(a.v.view <= b.v.view),
-    TaySymbol(">") => (a, b) -> TayBool(a.v.view > b.v.view),
-    TaySymbol(">=") => (a, b) -> TayBool(a.v.view >= b.v.view),
+    TaySymbol("<") => (a, b) -> TayBoolean(a.v._temp < b.v._temp),
+    TaySymbol("<=") => (a, b) -> TayBoolean(a.v._temp <= b.v._temp),
+    TaySymbol(">") => (a, b) -> TayBoolean(a.v._temp > b.v._temp),
+    TaySymbol(">=") => (a, b) -> TayBoolean(a.v._temp >= b.v._temp),
     TaySymbol("+") => (a, b) -> a.v._temp + b.v._temp,
     TaySymbol("-") => (a, b) -> a.v._temp - b.v._temp,
     TaySymbol("*") => (a, b) -> a.v._temp * b.v._temp,
     TaySymbol("/") => (a, b) -> div(a.v._temp, b.v._temp),
     TaySymbol("time-ms") => () -> round(Int, time()*1000),
 
-    TaySymbol("list") => (a...) -> TayList(vcat(map(x -> x.list, a))),
-    TaySymbol("list?") => (a) -> TayBool(isa(a, TayList)),
-    TaySymbol("vector") => (a...) -> TayVector(vcat(map(x -> x.list, a))),
-    TaySymbol("vector?") => (a) -> TayBool(isa(a, TayVector)),
-    TaySymbol("hash-map") => (a...) -> TayHashMap(a),
-    TaySymbol("map?") => (a) -> TayBool(isa(a, TayHashMap)),
-    TaySymbol("assoc") => (a, b...) -> merge(a, TayHashMap(b...)),
-    TaySymbol("dissoc") => (a, b...) -> foldl((x,y) -> delete!(x,y),copy(a), b),
-    TaySymbol("get") => (a,b) -> a === nothing ? nothing : get(a,b,nothing),
-    TaySymbol("contains?") => haskey,
-    TaySymbol("keys") => (a) -> TayList([keys(a)...]),
-    TaySymbol("vals") => (a) -> TayList([values(a)...]),
+    TaySymbol("list") => (a...) -> TayList([a...]),
+    TaySymbol("list?") => (a) -> TayBoolean(isa(a, TayList)),
+    TaySymbol("vector") => (a...) -> TayVector(collect(a)),
+    TaySymbol("vector?") => (a) -> TayBoolean(isa(a, TayVector)),
+    TaySymbol("hash-map") => (a...) -> TayHashMap(collect(a)),
+    TaySymbol("map?") => (a) -> TayBoolean(isa(a, TayHashMap)),
+    TaySymbol("assoc") => (a, b...) -> hash_map_assoc(a, collect(b)),
+    TaySymbol("dissoc") => (a, b...) -> hash_map_dissoc(a, collect(b)),
+    TaySymbol("get") => hash_map_get,
+    TaySymbol("contains?") => hash_map_has,
+    TaySymbol("keys") => (a) -> TayList([keys(a.stringMap)...]),
+    TaySymbol("vals") => (a) -> TayList([values(a.stringMap)...]),
 
     TaySymbol("sequential?") => sequential_Q,
-    TaySymbol("cons") => (a,b) -> TayList([Any[a]; Any[b...]]),
-    TaySymbol("concat") => (a...) -> TayList(concat(a...)),
+    TaySymbol("cons") => (a,b) -> TayList([Any[a]; Any[b.list...]]),
+    TaySymbol("concat") => (a...) -> TayList(vcat([i.list for i in a]...)),
     TaySymbol("vec") => (a) -> TayVector(a.list),
-    TaySymbol("nth") => (a,b) -> b+1 > length(a) ? error("nth: index out of range") : a[b+1],
-    TaySymbol("first") => (a) -> a === nothing || isempty(a) ? nothing : first(a),
-    TaySymbol("rest") => (a) -> a === nothing ? TayList([]) : TayList([a[2:end]...]),
-    TaySymbol("empty?") => (a) -> TayBool(isempty(a)),
-    TaySymbol("count") => (a) -> a == nothing ? 0 : length(a),
+    TaySymbol("nth") => (a,b) -> b.v._temp+1 > length(a.list) ? error("nth: index out of range") : a.list[b.v._temp+1],
+    TaySymbol("first") => (a) -> is_nil(a) || isempty(a.list) ? TayNilInstance : first(a.list),
+    TaySymbol("rest") => (a) -> is_nil(a) ? TayList([]) : TayList([a.list[2:end]...]),
+    TaySymbol("empty?") => (a) -> sequential_Q(a) ? TayBoolean(isempty(a.list)) : TayBoolean(false),
+    TaySymbol("count") => (a) -> is_nil(a) ? 0 : length(a.list),
     TaySymbol("apply") => do_apply,
     TaySymbol("map") => do_map,
 
     TaySymbol("conj") => conj,
     TaySymbol("seq") => do_seq,
 
-    TaySymbol("meta") => (a) -> isa(a,TayFunc) ? a.meta : nothing,
+    TaySymbol("meta") => (a) -> isa(a,TayFunc) ? a.meta : TayNilInstance,
     TaySymbol("with-meta") => with_meta,
     TaySymbol("atom") => (a) -> Atom(a),
-    TaySymbol("atom?") => (a) -> TayBool(isa(a,Atom)),
+    TaySymbol("atom?") => (a) -> TayBoolean(isa(a,Atom)),
     TaySymbol("deref") => (a) -> a.val,
     TaySymbol("reset!") => (a,b) -> a.val = b,
     TaySymbol("swap!") => (a,b,c...) -> a.val = do_apply(b, a.val, c),
