@@ -13,7 +13,7 @@ examples1 = [
     ("""(first (list 5 7 3 10))""", "5"),
     ("""(rest (list 5 7 3 10))""", "(7 3 10)"),
     ("""(count [5 3])""", "2"),
-    ("""(hash-map "akey" "avalue" "a" 2)""", """{"akey" "avalue" "a" 2}"""),
+    ("""(hash-map "akey" "avalue" "a" 2)""", """{"a" 2 "akey" "avalue"}"""),
     ("""(assoc {:c 7 "akey" "avalue" "a" 2} "b" 4)""", """{:c 7 "akey" "avalue" "a" 2 "b" 4}"""),
     ("""(dissoc {"akey" "avalue" "a" 2} "a")""", """{"akey" "avalue"}"""),
     ("""(get {"akey" "avalue" "a" 2} "akey")""", """\"avalue\""""),

@@ -84,7 +84,7 @@ function serialize(v::TaySymbol, options::Dict = Dict())::Uint8Array
         index = haskey(fmap, v.v.view) ? fmap[v.v.view] : getIndex(v.v.view)
         t_func(get(options, "length", 0), get(options, "arity", 0), index)
     elseif haskey(unknownMap, v.v.view)
-        t_unknown(unknownMap[this.v.view].depth, unknownMap[this.v.view].index)
+        t_unknown(get(unknownMap[v.v.view], "depth", 1), get(unknownMap[v.v.view], "index", 1))
     else
         Uint8Array(vcat(v.__type, v.v.a8))
     end
@@ -221,11 +221,11 @@ function hash_map_dissoc(v::TayHashMap, args::Vector{Any})
     end
 end
 
-function hash_map_has(v::TayHashMap, key::TayString)
+function hash_map_has(v::Any, key::TayString)
     haskey(v.stringMap, key.v.view)
 end
 
-function hash_map_get(v::TayHashMap, key::TayString)
+function hash_map_get(v::Any, key::TayString)
     is_nil(v) ? TayNilInstance : get(v, key, TayNilInstance)
 end
 

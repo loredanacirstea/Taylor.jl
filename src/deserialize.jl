@@ -51,7 +51,7 @@ function _deserialize(inidata::Uint8Array)
     if info[1] == true
         println("--- unknownInfo ", info)
         (depth, index) = info[2:3]
-        resu = TaySymbol(BufferString("x"*depth*"_"*index))
+        resu = TaySymbol(BufferString("x"*string(depth)*"_"*string(index)))
         return [resu, bytecode]
     end
 
@@ -114,11 +114,9 @@ function _deserialize(inidata::Uint8Array)
             TaySymbol(BufferString(name)),
         ]
         for i in range(1, arity, step = 1)
-            println("--- functionInfo i ", i)
             _result = _deserialize(body)
             body = _result[2]
             push!(resultf, _result[1])
-            println("--- arg ",  _result[1])
         end
         bytecode = bytecode[(bodylen + 1):length(bytecode)]
         res = TayList(resultf)

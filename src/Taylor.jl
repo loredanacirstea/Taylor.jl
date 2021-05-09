@@ -172,8 +172,8 @@ function EVAL(ast, env)
         end
     elseif "fn*" == ast[1].v.view
         return TayFunc(
-            (args...) -> EVAL(ast[3], Env(env, ast[2], Any[args...])),
-            ast[3], env, ast[2])
+            (args...) -> EVAL(ast[3], Env(env, ast[2].list, Any[args...])),
+            ast[3].list, env, ast[2].list)
     else
         el = eval_ast(ast, env)
         list = isa(el, TayList) ? el.list : el

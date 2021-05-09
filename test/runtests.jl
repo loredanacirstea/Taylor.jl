@@ -79,7 +79,9 @@ end
     @testset "Serialize $expr" for (expr, res) in examples1
         ast = READ(expr)
         astbin = serialize(ast)
-        @test PRINT(deserialize(astbin)) == expr
+        expr2 = PRINT(deserialize(astbin))
+        # @test expr2 == expr
         @test run(expr) == res
+        @test run(expr2) == res
     end
 end

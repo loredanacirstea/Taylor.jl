@@ -11,12 +11,12 @@ function pr_str(obj, print_readably=true)
     _r = print_readably
     if isa(obj, TayList)
         "($(join([pr_str(o, _r) for o=obj.list], " ")))"
-    elseif isa(obj, Array)
-        "($(join([pr_str(o, _r) for o=obj], " ")))"
     elseif isa(obj, TayVector)
         "[$(join([pr_str(o, _r) for o=obj.list], " "))]"
     elseif isa(obj, TayHashMap)
         "{$(join(["$(pr_str(o[1],_r)) $(pr_str(o[2],_r))" for o=obj.stringMap], " "))}"
+    elseif isa(obj, Array)
+        "($(join([pr_str(o, _r) for o=obj], " ")))"
     elseif isa(obj, TayString)
         if _r
             str = replace(replace(replace(obj.v.view,

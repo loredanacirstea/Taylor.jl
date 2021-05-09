@@ -118,7 +118,7 @@ function bytelikeInfo(arr::Vector{UInt8})
     if headb[1:4] != getid("bytelike") return [false] end
     length = bytes2int(reverse(arr[5:8])) # be -> le
     type = bitarr_to_int(headb[5:6])
-    encoding = bitarr_to_int(headb[6:8])
+    encoding = bitarr_to_int(headb[7:32])
     [true, length, type, encoding]
 end
 

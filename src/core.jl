@@ -19,7 +19,7 @@ function string_Q(obj)
 end
 
 function keyword_Q(obj)
-    isa(obj,AbstractString) && (length(obj) > 0 && obj[1] == '\u029e')
+    isa(obj,TayString) && (length(obj.v.a8) > 0 && obj.v.view[1] == '\u029e')
 end
 
 function concat(args...)
@@ -32,16 +32,16 @@ end
 
 function do_apply(f, all_args...)
     fn = isa(f,TayFunc) ? f.fn : f
-    args = concat(all_args[1:end-1], all_args[end])
+    args = concat(all_args[1:end-1], all_args[end].list)
     fn(args...)
 end
 
 function do_map(a,b)
     # map and convert to array/list
     if isa(a,TayFunc)
-        collect(map(a.fn,b))
+        collect(map(a.fn,b.list))
     else
-        collect(map(a,b))
+        collect(map(a,b.list))
     end
 end
 
@@ -82,15 +82,15 @@ ns = () -> OrderedDict{TaySymbol,Any}(
     TaySymbol("true?") => (a) -> TayBoolean(a.v.a8[1] == 1),
     TaySymbol("false?") => (a) -> TayBoolean(a.v.a8[1] == 0),
     TaySymbol("string?") => (a) -> TayBoolean(string_Q(a)),
-    TaySymbol("Symbol") => (a) -> TaySymbol(a.v.view),
-    TaySymbol("Symbol?") => (a) -> TayBoolean(typeof(a) === Symbol),
-    TaySymbol("keyword") => (a) -> a[1] == '\u029e' ? a : "\u029e$(a)",
+    TaySymbol("symbol") => (a) -> TaySymbol(a.v.view),
+    TaySymbol("symbol?") => (a) -> TayBoolean(isa(a, TaySymbol)),
+    TaySymbol("keyword") => (a) -> isa(a, TayString) && a.v.view[1] == '\u029e' ? a : TayString("\u029e$(a)"),
     TaySymbol("keyword?") => (a) -> TayBoolean(keyword_Q(a)),
     TaySymbol("number?") => (a) -> TayBoolean(isa(a, AbstractFloat) || isa(a, TayNumber)),
     TaySymbol("fn?") => (a) -> TayBoolean(isa(a, Function) || (isa(a, TayFunc) && !a.ismacro)),
     TaySymbol("macro?") => (a) -> TayBoolean(isa(a, TayFunc) && a.ismacro),
 
-    TaySymbol("pr-str") => (a...) -> join(map((e)->pr_str(e, true),a)," "),
+    TaySymbol("pr-str") => (a...) -> TayString(join(map((e)->pr_str(e, true),a)," ")),
     TaySymbol("str") => (a...) -> TayString(join(map((e)->pr_str(e, false),a),"")),
     TaySymbol("prn") => (a...) -> println(join(map((e)->pr_str(e, true),a)," ")),
     TaySymbol("println") => (a...) -> println(join(map((e)->pr_str(e, false),a)," ")),
@@ -102,11 +102,11 @@ ns = () -> OrderedDict{TaySymbol,Any}(
     TaySymbol("<=") => (a, b) -> TayBoolean(a.v._temp <= b.v._temp),
     TaySymbol(">") => (a, b) -> TayBoolean(a.v._temp > b.v._temp),
     TaySymbol(">=") => (a, b) -> TayBoolean(a.v._temp >= b.v._temp),
-    TaySymbol("+") => (a, b) -> a.v._temp + b.v._temp,
-    TaySymbol("-") => (a, b) -> a.v._temp - b.v._temp,
-    TaySymbol("*") => (a, b) -> a.v._temp * b.v._temp,
-    TaySymbol("/") => (a, b) -> div(a.v._temp, b.v._temp),
-    TaySymbol("time-ms") => () -> round(Int, time()*1000),
+    TaySymbol("+") => (a, b) -> TayNumber(a.v._temp + b.v._temp),
+    TaySymbol("-") => (a, b) -> TayNumber(a.v._temp - b.v._temp),
+    TaySymbol("*") => (a, b) -> TayNumber(a.v._temp * b.v._temp),
+    TaySymbol("/") => (a, b) -> TayNumber(div(a.v._temp, b.v._temp)),
+    TaySymbol("time-ms") => () -> TayNumber(round(Int, time()*1000)),
 
     TaySymbol("list") => (a...) -> TayList([a...]),
     TaySymbol("list?") => (a) -> TayBoolean(isa(a, TayList)),
