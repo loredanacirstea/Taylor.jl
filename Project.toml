@@ -1,6 +1,7 @@
 name = "Taylor"
 uuid = "0d749214-bdee-449c-a2f9-b2fa4e49104e"
 authors = ["Loredana Cirstea <loredana.cirstea@gmail.com>"]
+repo = "https://github.com/loredanacirstea/taylor.jl.git"
 version = "0.0.1"
 
 [deps]
